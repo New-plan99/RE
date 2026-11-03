@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Online Regex Tester & Debugger</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700&display=swap');
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #f8fafc;
+      color: #334155;
+    }
+
+    code, textarea, input, .code-font {
+      font-family: 'Fira Code', monospace;
+    }
+
+    /* Custom Highlight Styles */
+    .highlight-wrapper {
+      position: relative;
+      background-color: #ffffff;
+    }
+
+    /* 確保高亮層與輸入框完全重疊對齊的共通樣式 */
+    .highlight-layer, .test-textarea {
+      box-sizing: border-box !important;
+      font-family: 'Fira Code', monospace !important;
+      font-size: 0.875rem !important; /* 14px */
+      line-height: 1.6 !important;
+      padding: 0.75rem !important; /* 12px */
+      white-space: pre-wrap !important;
+      word-wrap: break-word !important;
+      word-break: break-all !important;
+      margin: 0 !important;
+    }
+
+    .highlight-layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      color: transparent;
+      overflow-y: auto;
+      pointer-events: none;
+      border: 1px solid transparent !important;
+    }
+
+    .test-textarea {
+      border: 1px solid transparent;
+      background: transparent;
+    }
+
+    .match-highlight-even {
+      background-color: rgba(59, 130, 246, 0.25);
+      border-bottom: 2px solid #3b82f6;
+      border-radius: 2px;
+      color: transparent;
+    }
+
+    .match-highlight-odd {
+      background-color: rgba(16, 185, 129, 0.25);
+      border-bottom: 2px solid #10b981;
+      border-radius: 2px;
+      color: transparent;
+    }
+
+    .match-highlight-active {
+      background-color: rgba(245, 158, 11, 0.45) !important;
+      border-bottom: 2px solid #f59e0b !important;
+      color: transparent;
+    }
+
+    /* Scrollbar Styling */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+
+    /* Custom Checkbox Pill Toggle */
+    .flag-toggle input:checked + span {
+      background-color: #3b82f6;
+      color: #ffffff;
+      border-color: #3b82f6;
+      box-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- Header -->
+  <header class="border-b border-slate-200 bg-white/80 backdrop-blur sticky top-0 z-50 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-9 h-9 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-xl text-white shadow-lg shadow-blue-500/20">
+          .*
+        </div>
+        <div>
+          <h1 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+            Regex Engine <span class="text-xs font-normal px-2 py-0.5 bg-blue-50 text-blue-600 border border-blue-200 rounded-full">JavaScript</span>
+          </h1>
+          <p class="text-xs text-slate-500">即時正規表達式測試與偵錯工具</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <!-- Preset Selector -->
+        <div class="relative">
+          <select id="presetSelect" class="bg-slate-50 text-xs text-slate-700 border border-slate-300 rounded-lg px-3 py-2 pr-8 focus:outline-none focus:border-blue-500 cursor-pointer">
+            <option value="" disabled selected>快速載入範例...</option>
+            <option value="email">Email 電子郵件</option>
+            <option value="url">URL 網址</option>
+            <option value="phone">台灣手機號碼</option>
+            <option value="date">日期 (YYYY-MM-DD)</option>
+            <option value="ipv4">IPv4 位址</option>
+            <option value="chinese">中文字元匹配</option>
+            <option value="html">HTML 標籤</option>
+          </select>
+        </div>
+
+        <button id="toggleSidebarBtn" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-lg text-xs font-medium border border-slate-200 transition flex items-center gap-1.5">
+          <i class="fa-solid fa-book-open"></i>
+          <span class="hidden sm:inline">速查表</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Layout -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+    <!-- Left / Top Column: Regex Input & Testing Area -->
+    <section class="lg:col-span-8 flex flex-col gap-6">
+
+      <!-- Regex Input Box -->
+      <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
+          Regular Expression (正規表達式)
+        </label>
+        
+        <div class="flex items-center bg-slate-50 border border-slate-300 rounded-lg focus-within:border-blue-500 transition px-3 py-2">
+          <span class="text-slate-400 font-mono text-lg select-none">/</span>
+          <input type="text" id="regexInput" placeholder="在此輸入 Regular Expression，例如: [a-zA-Z0-9]+" class="w-full bg-transparent text-blue-600 font-mono text-base focus:outline-none px-2" value="">
+          <span class="text-slate-400 font-mono text-lg select-none">/</span>
+          <span id="flagsDisplay" class="text-amber-600 font-mono text-base font-semibold ml-1 select-none">gim</span>
+        </div>
+
+        <!-- Regex Status / Error Output -->
+        <div id="statusContainer" class="mt-2 text-xs flex items-center gap-2 min-h-[20px]">
+          <i id="statusIcon" class="fa-solid fa-circle-check text-emerald-600"></i>
+          <span id="statusText" class="text-slate-600">表達式語法正確</span>
+        </div>
+
+        <!-- Flags Selection -->
+        <div class="mt-4 pt-3 border-t border-slate-100 flex flex-wrap items-center gap-2">
+          <span class="text-xs text-slate-500 font-medium mr-2">標記 (Flags):</span>
+
+          <label class="flag-toggle cursor-pointer">
+            <input type="checkbox" value="g" class="flag-checkbox hidden" checked>
+            <span class="px-2.5 py-1 text-xs font-mono rounded-md border border-slate-200 bg-slate-50 text-slate-600 transition select-none inline-block" title="Global: 搜尋所有匹配項，而非在第一個匹配後停止">g (global)</span>
+          </label>
+
+          <label class="flag-toggle cursor-pointer">
+            <input type="checkbox" value="i" class="flag-checkbox hidden" checked>
+            <span class="px-2.5 py-1 text-xs font-mono rounded-md border border-slate-200 bg-slate-50 text-slate-600 transition select-none inline-block" title="Case Insensitive: 忽略大小寫區分">i (insensitive)</span>
+          </label>
+
+          <label class="flag-toggle cursor-pointer">
+            <input type="checkbox" value="m" class="flag-checkbox hidden" checked>
+            <span class="px-2.5 py-1 text-xs font-mono rounded-md border border-slate-200 bg-slate-50 text-slate-600 transition select-none inline-block" title="Multiline: ^ 與 $ 匹配每行的開頭和結尾">m (multiline)</span>
+          </label>
+
+          <label class="flag-toggle cursor-pointer">
+            <input type="checkbox" value="s" class="flag-checkbox hidden">
+            <span class="px-2.5 py-1 text-xs font-mono rounded-md border border-slate-200 bg-slate-50 text-slate-600 transition select-none inline-block" title="Single line / dotAll: 允許 . 匹配換行符號">s (single line)</span>
+          </label>
+
+          <label class="flag-toggle cursor-pointer">
+            <input type="checkbox" value="u" class="flag-checkbox hidden">
+            <span class="px-2.5 py-1 text-xs font-mono rounded-md border border-slate-200 bg-slate-50 text-slate-600 transition select-none inline-block" title="Unicode: 將模式視為 Unicode 碼點序列">u (unicode)</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Test String Editor -->
+      <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col flex-1">
+        <div class="flex justify-between items-center mb-2">
+          <label class="text-xs font-semibold uppercase tracking-wider text-slate-500">
+            Test String (測試字串)
+          </label>
+          <button id="clearTestStrBtn" class="text-xs text-slate-400 hover:text-slate-600 transition">
+            <i class="fa-solid fa-eraser mr-1"></i>清空內容
+          </button>
+        </div>
+
+        <div class="relative flex-1 min-h-[180px] highlight-wrapper rounded-lg border border-slate-300 overflow-hidden">
+          <!-- Highlight Layer Below -->
+          <div id="highlightLayer" class="highlight-layer"></div>
+
+          <!-- Textarea Input Above -->
+          <textarea id="testStringInput" spellcheck="false" class="test-textarea absolute inset-0 w-full h-full text-slate-800 resize-none focus:outline-none focus:border-blue-500 rounded-lg z-10 caret-slate-900"></textarea>
+        </div>
+      </div>
+
+      <!-- Substitution / Replacement Section -->
+      <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+        <div class="flex items-center justify-between mb-2">
+          <label class="text-xs font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-2">
+            <i class="fa-solid fa-right-left text-blue-600"></i> Regex Replace (文字替換)
+          </label>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs text-slate-500 mb-1">替換成 (Replacement String):</label>
+            <input type="text" id="replaceInput" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-emerald-600 font-mono text-sm focus:outline-none focus:border-blue-500" value="">
+            <p class="text-[11px] text-slate-400 mt-1">使用 <code class="text-amber-600">$1</code>, <code class="text-amber-600">$2</code> 來代表擷取分組 (Capture Groups)。</p>
+          </div>
+
+          <div>
+            <label class="block text-xs text-slate-500 mb-1">替換結果 (Output):</label>
+            <div id="replaceOutput" class="w-full h-24 bg-slate-50 border border-slate-200 rounded-lg p-3 font-mono text-xs text-slate-700 overflow-y-auto whitespace-pre-wrap"></div>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- Right / Bottom Column: Match Details & Cheat Sheet Drawer -->
+    <section class="lg:col-span-4 flex flex-col gap-6">
+
+      <!-- Match Results Summary & List -->
+      <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col h-[320px] lg:h-1/2">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
+          <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-2">
+            <i class="fa-solid fa-list-check text-blue-600"></i> 匹配結果 (Match Details)
+          </h2>
+          <span id="matchCountBadge" class="px-2 py-0.5 bg-blue-50 text-blue-600 border border-blue-200 text-xs font-bold rounded-full">
+            0 匹配
+          </span>
+        </div>
+
+        <!-- Matches Container -->
+        <div id="matchesList" class="flex-1 overflow-y-auto space-y-2.5 pr-1">
+          <!-- Dynamically populated matches -->
+        </div>
+      </div>
+
+      <!-- Regex Cheat Sheet Sidebar -->
+      <div id="cheatSheetPanel" class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex-1 flex flex-col min-h-[300px]">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
+          <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-2">
+            <i class="fa-solid fa-lightbulb text-amber-500"></i> Regex 語法速查 (Cheat Sheet)
+          </h2>
+        </div>
+
+        <p class="text-xs text-slate-400 mb-3">點擊下方項目可將語法直接插入至表達式：</p>
+
+        <!-- Cheat Sheet Categories -->
+        <div class="flex-1 overflow-y-auto space-y-4 text-xs pr-1">
+
+          <!-- Character Classes -->
+          <div>
+            <h3 class="text-slate-700 font-semibold mb-2 text-xs border-l-2 border-blue-500 pl-2">字元類別 (Character Classes)</h3>
+            <div class="grid grid-cols-2 gap-1.5">
+              <button class="cheat-item text-left p-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded flex justify-between transition" data-insert=".">
+                <code class="text-amber-600 font-bold">.</code>
+                <span class="text-slate-500 text-[11px]">任意字元</span>
+              </button>
+              <button class="cheat-item text-left p-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded flex justify-between transition" data-insert="\d">
+                <code class="text-amber-600 font-bold">\d</code>
+                <span class="text-slate-500 text-[11px]">數字 [0-9]</span>
+              </button>
+              <button class="cheat-item text-left p-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded flex justify-between transition" data-insert="\w">
+                <code class="text-amber-600 font-bold">\w</code>
+                <span class="text-slate-500 text-[11px]">單字字元</span>
+              </button>
+              <button class="cheat-item text-left p-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded flex justify-between transition" data-insert="\s">
+                <code class="text-amber-600 font-bold">\s</code>
+                <span class="text-slate-500 text-[11px]">空白字元</span>
+              </button>
+              <button class="cheat-item text-left p-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded flex justify-between transition" data-insert="[a-z]">
+                <code class="text-amber-600 font-bold">[a-z]</code>
+                <span class="text-slate-500 text-[11px]">範圍字元</span>
+              </button>
+              <button class="cheat-item text-left p-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded flex justify-between transition" data-insert="[^0-9]">
+                <code class="text-amber-600 font-bold">[^...]</code>
+                <span class="text-slate-500 text-[11px]">反向匹配</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Quantifiers -->
+          <div>
+            <h3 class="text-slate-700 font-semibold mb-2 text-xs border-l-2 border-emerald-500 pl-2">數量詞 (Quantifiers)</h3>
+            <div class="grid grid-cols-2 gap-1.5">
+              <button class="cheat-item text-left p-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded flex justify-between transition" data-insert="*">
+                <code class="text-emerald-600 font-bold">*</code>
+                <span class="text-slate-500 text-[11px]">0 次或多次</span>
+              </button>
+              <button class="cheat-item text-left p-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded flex justify-between transition" data-insert="+">
+                <code class="text-emerald-600 font-bold">+</code>
+                <span class="text-slate-500 text-[11px]">1 次或多次</span>
+              </button>
+              <button class="cheat-item text-left p-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded flex justify-between transition" data-insert="?">
+                <code class="text-emerald-600 font-bold">?</code>
+                <span class="text-slate-500 text-[11px]">0 次或 1 次</span>
+              </button>
+              <button class="cheat-item text-left p-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded flex justify-between transition" data-insert="{2,4}">
+                <code class="text-emerald-600 font-bold">{n,m}</code>
+                <span class="text-slate-500 text-[11px]">n 到 m 次</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Anchors -->
+          <div>
+            <h3 class="text-slate-700 font-semibold mb-2 text-xs border-l-2 border-purple-500 pl-2">錨點 (Anchors)</h3>
+            <div class="grid grid-cols-2 gap-1.5">
+              <button class="cheat-item text-left p-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded flex justify-between transition" data-insert="^">
+                <code class="text-purple-600 font-bold">^</code>
+                <span class="text-slate-500 text-[11px]">字串/開頭</span>
+              </button>
+              <button class="cheat-item text-left p-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded flex justify-between transition" data-insert="$">
+                <code class="text-purple-600 font-bold">$</code>
+                <span class="text-slate-500 text-[11px]">字串/結尾</span>
+              </button>
+              <button class="cheat-item text-left p-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded flex justify-between transition" data-insert="\b">
+                <code class="text-purple-600 font-bold">\b</code>
+                <span class="text-slate-500 text-[11px]">單字邊界</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Groups & Lookaround -->
+          <div>
+            <h3 class="text-slate-700 font-semibold mb-2 text-xs border-l-2 border-rose-500 pl-2">群組與預查 (Groups & Lookaround)</h3>
+            <div class="grid grid-cols-1 gap-1.5">
+              <button class="cheat-item text-left p-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded flex justify-between transition" data-insert="(...)">
+                <code class="text-rose-600 font-bold">(abc)</code>
+                <span class="text-slate-500 text-[11px]">捕獲群組 (Capture Group)</span>
+              </button>
+              <button class="cheat-item text-left p-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded flex justify-between transition" data-insert="(?:...)">
+                <code class="text-rose-600 font-bold">(?:abc)</code>
+                <span class="text-slate-500 text-[11px]">非捕獲群組 (Non-capturing)</span>
+              </button>
+              <button class="cheat-item text-left p-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded flex justify-between transition" data-insert="(?=...)">
+                <code class="text-rose-600 font-bold">(?=abc)</code>
+                <span class="text-slate-500 text-[11px]">正前瞻 (Positive Lookahead)</span>
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-slate-200 py-4 text-center text-xs text-slate-400 bg-white">
+    Online Regex Tester & Debugger &copy; 2026 | Built with HTML, CSS & Vanilla JS
+  </footer>
+
+  <!-- JavaScript Application Logic -->
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // Elements
+      const regexInput = document.getElementById('regexInput');
+      const flagsDisplay = document.getElementById('flagsDisplay');
+      const flagCheckboxes = document.querySelectorAll('.flag-checkbox');
+      const testStringInput = document.getElementById('testStringInput');
+      const highlightLayer = document.getElementById('highlightLayer');
+      const replaceInput = document.getElementById('replaceInput');
+      const replaceOutput = document.getElementById('replaceOutput');
+      const matchesList = document.getElementById('matchesList');
+      const matchCountBadge = document.getElementById('matchCountBadge');
+      const statusIcon = document.getElementById('statusIcon');
+      const statusText = document.getElementById('statusText');
+      const presetSelect = document.getElementById('presetSelect');
+      const clearTestStrBtn = document.getElementById('clearTestStrBtn');
+
+      // Presets Collection
+      const presets = {
+        email: {
+          pattern: '([a-zA-Z0-9._%+-]+)@([a-zA-Z0-9.-]+\\.[a-zA-Z]{2,})',
+          flags: 'gim',
+          testStr: '如有問題請聯絡客服：service@example.com 或技術支援 support.dev@company.co.tw。',
+          replace: 'USER: $1 | DOMAIN: $2'
+        },
+        url: {
+          pattern: 'https?://(www\\.)?([a-zA-Z0-9.-]+)(/[a-zA-Z0-9._~:/?#\\[\\]@!$&\'()*+,;=-]*)?',
+          flags: 'gi',
+          testStr: '歡迎造訪官網 https://www.google.com/search?q=regex 或參考 GitHub：http://github.com/ repository。',
+          replace: '[LINK: $2]'
+        },
+        phone: {
+          pattern: '09\\d{2}-?\\d{3}-?\\d{3}',
+          flags: 'g',
+          testStr: '我的手機號碼是 0912-345-678，備用號碼是 0987654321。',
+          replace: '09XX-XXX-XXX'
+        },
+        date: {
+          pattern: '(\\d{4})-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01])',
+          flags: 'g',
+          testStr: '專案啟動日期：2026-03-15，預計截止日期：2026-12-31。無效日期：2026-15-40。',
+          replace: '$2/$3/$1'
+        },
+        ipv4: {
+          pattern: '\\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\b',
+          flags: 'g',
+          testStr: 'Server IP: 192.168.1.1, Gateway: 10.0.0.254, Invalid: 999.300.1.1.',
+          replace: '[IP-MASKED]'
+        },
+        chinese: {
+          pattern: '[\\u4e00-\\u9fa5]+',
+          flags: 'g',
+          testStr: 'Hello 世界！Regex 測試器支援 Chinese Characters 中文字元匹配。',
+          replace: '[$&]'
+        },
+        html: {
+          pattern: '<([a-z1-6]+)([^>]*)>(.*?)</\\1>',
+          flags: 'gi',
+          testStr: '<div class="card"><h1>Title</h1><p>This is a <b>paragraph</b>.</p></div>',
+          replace: '<$1>$3</$1>'
+        }
+      };
+
+      // Get Active Flags
+      function getActiveFlags() {
+        let flags = '';
+        flagCheckboxes.forEach(cb => {
+          if (cb.checked) flags += cb.value;
+        });
+        return flags;
+      }
+
+      // Update Flags Display Label
+      function updateFlagsDisplay() {
+        const flags = getActiveFlags();
+        flagsDisplay.textContent = flags;
+      }
+
+      // Escape HTML for safe rendering
+      function escapeHtml(str) {
+        return str
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+      }
+
+      // Synchronize Scroll between Textarea and Highlight Layer
+      testStringInput.addEventListener('scroll', () => {
+        highlightLayer.scrollTop = testStringInput.scrollTop;
+        highlightLayer.scrollLeft = testStringInput.scrollLeft;
+      });
+
+      // Main Update & Execution Function
+      function processRegex() {
+        const pattern = regexInput.value;
+        const flags = getActiveFlags();
+        const testStr = testStringInput.value;
+        const replaceStr = replaceInput.value;
+
+        // Reset status
+        statusIcon.className = "fa-solid fa-circle-check text-emerald-600";
+        statusText.textContent = "表達式語法正確";
+        statusText.className = "text-slate-600";
+
+        if (!pattern) {
+          highlightLayer.innerHTML = escapeHtml(testStr) + '\n';
+          matchesList.innerHTML = '<p class="text-xs text-slate-400 italic p-2">請輸入正規表達式進行測試。</p>';
+          matchCountBadge.textContent = '0 匹配';
+          replaceOutput.textContent = testStr;
+          return;
+        }
+
+        try {
+          const regex = new RegExp(pattern, flags);
+          
+          // Perform Replace
+          try {
+            replaceOutput.textContent = testStr.replace(regex, replaceStr);
+          } catch (e) {
+            replaceOutput.textContent = "替換錯誤: " + e.message;
+          }
+
+          // Perform Match Execution
+          const matches = [];
+          if (flags.includes('g')) {
+            let match;
+            let lastIndex = -1;
+            while ((match = regex.exec(testStr)) !== null) {
+              if (match.index === lastIndex) {
+                regex.lastIndex++;
+              }
+              lastIndex = match.index;
+              matches.push(match);
+              if (match[0].length === 0 && regex.lastIndex >= testStr.length) break;
+            }
+          } else {
+            const match = regex.exec(testStr);
+            if (match) matches.push(match);
+          }
+
+          // Update Match Counter
+          matchCountBadge.textContent = `${matches.length} 匹配`;
+
+          // Render Highlighted Text Layer
+          renderHighlights(testStr, matches);
+
+          // Render Matches List Details
+          renderMatchesList(matches);
+
+        } catch (err) {
+          // Handle Regex Syntax Error
+          statusIcon.className = "fa-solid fa-circle-exclamation text-rose-600";
+          statusText.textContent = err.message;
+          statusText.className = "text-rose-600 font-mono";
+
+          highlightLayer.innerHTML = escapeHtml(testStr) + '\n';
+          matchesList.innerHTML = `<div class="p-3 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-600">
+            <strong>語法錯誤:</strong> ${escapeHtml(err.message)}
+          </div>`;
+          matchCountBadge.textContent = '錯誤';
+          replaceOutput.textContent = testStr;
+        }
+      }
+
+      // Render Rich Text Highlights
+      function renderHighlights(text, matches) {
+        if (matches.length === 0) {
+          highlightLayer.innerHTML = escapeHtml(text) + '\n';
+          return;
+        }
+
+        let html = '';
+        let lastIndex = 0;
+
+        matches.forEach((match, i) => {
+          const matchStart = match.index;
+          const matchText = match[0];
+          const matchEnd = matchStart + matchText.length;
+
+          // Non-matched segment
+          html += escapeHtml(text.slice(lastIndex, matchStart));
+
+          // Matched segment with alternating visual highlight class
+          const highlightClass = (i % 2 === 0) ? 'match-highlight-even' : 'match-highlight-odd';
+          html += `<mark class="${highlightClass}" id="highlight-match-${i}">${escapeHtml(matchText)}</mark>`;
+
+          lastIndex = matchEnd;
+        });
+
+        // Remaining text
+        html += escapeHtml(text.slice(lastIndex));
+        highlightLayer.innerHTML = html + '\n';
+      }
+
+      // Render Matches Breakdown Sidebar
+      function renderMatchesList(matches) {
+        if (matches.length === 0) {
+          matchesList.innerHTML = '<p class="text-xs text-slate-400 italic p-2">未找到任何匹配項目。</p>';
+          return;
+        }
+
+        matchesList.innerHTML = '';
+        matches.forEach((match, i) => {
+          const matchCard = document.createElement('div');
+          matchCard.className = 'p-2.5 bg-slate-50 border border-slate-200 hover:border-slate-300 rounded-lg text-xs space-y-1.5 transition cursor-pointer shadow-2xs';
+
+          // Hover interaction: highlight corresponding text mark
+          matchCard.addEventListener('mouseenter', () => {
+            const markElem = document.getElementById(`highlight-match-${i}`);
+            if (markElem) markElem.classList.add('match-highlight-active');
+          });
+
+          matchCard.addEventListener('mouseleave', () => {
+            const markElem = document.getElementById(`highlight-match-${i}`);
+            if (markElem) markElem.classList.remove('match-highlight-active');
+          });
+
+          // Match header & groups
+          let groupsHtml = '';
+          if (match.length > 1) {
+            groupsHtml += '<div class="mt-2 pt-2 border-t border-slate-200 space-y-1">';
+            for (let g = 1; g < match.length; g++) {
+              groupsHtml += `
+                <div class="flex justify-between items-center text-[11px] font-mono">
+                  <span class="text-slate-400">Group ${g}:</span>
+                  <span class="text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">${escapeHtml(match[g] !== undefined ? match[g] : 'undefined')}</span>
+                </div>`;
+            }
+            groupsHtml += '</div>';
+          }
+
+          matchCard.innerHTML = `
+            <div class="flex items-center justify-between font-mono">
+              <span class="text-xs font-bold text-blue-600">Match #${i + 1}</span>
+              <span class="text-[10px] text-slate-400">Index: ${match.index} | Length: ${match[0].length}</span>
+            </div>
+            <div class="font-mono text-slate-700 bg-white p-1.5 rounded border border-slate-200 break-all">
+              ${escapeHtml(match[0])}
+            </div>
+            ${groupsHtml}
+          `;
+
+          matchesList.appendChild(matchCard);
+        });
+      }
+
+      // Cheat Sheet Button Insert Handler
+      document.querySelectorAll('.cheat-item').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const toInsert = btn.getAttribute('data-insert');
+          const startPos = regexInput.selectionStart;
+          const endPos = regexInput.selectionEnd;
+          
+          regexInput.value = regexInput.value.substring(0, startPos) + toInsert + regexInput.value.substring(endPos);
+          regexInput.focus();
+          regexInput.selectionStart = startPos + toInsert.length;
+          regexInput.selectionEnd = startPos + toInsert.length;
+
+          processRegex();
+        });
+      });
+
+      // Preset Selector Handler
+      presetSelect.addEventListener('change', (e) => {
+        const key = e.target.value;
+        if (presets[key]) {
+          const item = presets[key];
+          regexInput.value = item.pattern;
+          testStringInput.value = item.testStr;
+          replaceInput.value = item.replace || '';
+
+          // Set flags
+          flagCheckboxes.forEach(cb => {
+            cb.checked = item.flags.includes(cb.value);
+          });
+
+          updateFlagsDisplay();
+          processRegex();
+        }
+      });
+
+      // Clear Test String
+      clearTestStrBtn.addEventListener('click', () => {
+        testStringInput.value = '';
+        processRegex();
+      });
+
+      // Event Listeners for Live Updates
+      regexInput.addEventListener('input', processRegex);
+      testStringInput.addEventListener('input', processRegex);
+      replaceInput.addEventListener('input', processRegex);
+
+      flagCheckboxes.forEach(cb => {
+        cb.addEventListener('change', () => {
+          updateFlagsDisplay();
+          processRegex();
+        });
+      });
+
+      // Initial Process Run - 預設保持空白
+      regexInput.value = '';
+      testStringInput.value = '';
+      replaceInput.value = '';
+      updateFlagsDisplay();
+      processRegex();
+    });
+  </script>
+</body>
+</html>
